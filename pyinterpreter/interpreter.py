@@ -12,6 +12,7 @@ class Interpreter(code.InteractiveConsole):
         context = globals().copy()
         context.update(locals())
         super(Interpreter, self).__init__(context)
+        self.inter_name = self.__class__.__name__
         self.write_slot = None
         self.input_slot = None
         self.more = 0
@@ -57,7 +58,7 @@ class Interpreter(code.InteractiveConsole):
         """
         cprt = 'Type "help", "copyright", "credits" or "license" for more information.'
         if banner is None:
-            self.write("Python %s on %s\n%s\n(%s)\n" % (sys.version, sys.platform, cprt, self.__class__.__name__))
+            self.write("Python %s on %s\n%s\n(%s)\n" % (sys.version, sys.platform, cprt, self.inter_name))
         elif banner:
             self.write("%s\n" % str(banner))
         # run first prompt input.

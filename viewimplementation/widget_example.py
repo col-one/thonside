@@ -14,6 +14,8 @@ class TerminalPython(terminal.Terminal):
         self.prompt = self.interpreter.prompt
         # connect enter signal to interpreter
         self.press_enter.connect(self.interpreter.run)
+        # rename interpreter
+        self.interpreter.inter_name = "ThonSide Interpreter"
         # start interpreter
         self.interpreter.interact()
 
