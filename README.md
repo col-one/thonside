@@ -5,7 +5,7 @@ Python interpreter embeddable in a PySide2 widget.
 
 ![alt text](https://raw.githubusercontent.com/col-one/thonside/master/img/thonside_repr.png)
 
-Compatible PySide2.
+Compatible PySide2 and Python3.
 
 Interpreter embedded in a QPlainTextEdit widget. 
 
