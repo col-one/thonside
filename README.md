@@ -42,6 +42,6 @@ if __name__ == '__main__':
     sys.exit(app.exec_())
 ```
 
-.Fork It Code It Share It.
+## **.Fork It Code It Share It.**
 
 Thanks
