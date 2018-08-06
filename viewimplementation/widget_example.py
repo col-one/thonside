@@ -9,7 +9,7 @@ class TerminalPython(terminal.Terminal):
         self.interpreter = interpreter.Interpreter()
         # connect write and input interpreter to the view implementation.
         self.interpreter.write_slot = self.write
-        self.interpreter.raw_input = self.raw_input
+        self.interpreter.input_slot = self.raw_input
         # define prompt
         self.prompt = self.interpreter.prompt
         # connect enter signal to interpreter
