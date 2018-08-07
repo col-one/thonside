@@ -1,19 +1,18 @@
 import sys
 import code
-import rlcompleter
 from io import StringIO
 from contextlib import redirect_stdout
 
-AUTOCOMPLETE_LIMIT = 20
 
 class Interpreter(code.InteractiveConsole):
-    def __init__(self):
+    def __init__(self, extra_context=dict()):
         """
         Init an interpreter, get globals and locals from current context.
         Define classic python prompt style.
         """
         context = globals().copy()
-        context.update(locals())
+        context.update(locals().copy())
+        context.update(extra_context.copy())
         super(Interpreter, self).__init__(context)
         self.inter_name = self.__class__.__name__
         self.write_slot = None
@@ -87,37 +86,18 @@ class Interpreter(code.InteractiveConsole):
         :return:
         """
         old_stdout = sys.stdout
+        old_stderr = sys.stderr
         sys.stdout = StringIO()
+        sys.stderr = StringIO()
         super(Interpreter, self).runcode(code)
         with sys.stdout as buf, redirect_stdout(buf):
             output = buf.getvalue()
             if bool(output and output.strip()):
                 self.write(output)
+        with sys.stderr as buf, redirect_stdout(buf):
+            output = buf.getvalue()
+            if bool(output and output.strip()):
+                self.write(output)
         sys.stdout = old_stdout
 
-    def autocomplete(self, command):
-        """
-        Ask different possibility from command arg, proposition is limited by AUTOCOMPLETE_LIMIT constant
-        :param command: str
-        :return: list of proposition
-        """
-        propositions = []
-        completer = rlcompleter.Completer()
-        for i in range(AUTOCOMPLETE_LIMIT):
-            ret = completer.complete(command, i)
-            if ret:
-                propositions.append(ret)
-            else:
-                break
-        return propositions
-
-    def write_autocomplete(self, command):
-        propositions = self.autocomplete(command)
-        buffer = " ".join(propositions)
-        buffer = buffer.strip()
-        if len(propositions) != 1:
-            self.write(buffer)
-            self.raw_input(self.prompt + command)
-        else:
-            self.raw_input(self.prompt + propositions[0])
 

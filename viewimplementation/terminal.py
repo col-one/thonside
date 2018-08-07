@@ -1,14 +1,16 @@
 import os
 import atexit
 import readline
+import rlcompleter
 from PySide2 import QtCore, QtGui, QtWidgets
 
+AUTOCOMPLETE_LIMIT = 20
+AUTOCOMPLETE_SEPARATOR = "\n"
 
 class Terminal(QtWidgets.QPlainTextEdit):
 
     # signal to connect at the interpreter run code
     press_enter = QtCore.Signal(str)
-    press_tab = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         """
@@ -26,6 +28,7 @@ class Terminal(QtWidgets.QPlainTextEdit):
         self.hist_file = os.path.join(os.path.expanduser("~"), ".pyTermHist")
         self.init_history(self.hist_file)
         self.history_index = readline.get_current_history_length()
+        self.completer = rlcompleter.Completer()
 
         # connection cursor line position
         self.cursorPositionChanged.connect(self.count_cursor_lines)
@@ -131,6 +134,47 @@ class Terminal(QtWidgets.QPlainTextEdit):
         self.history_index -= 1
         return hist
 
+    def autocomplete(self, command):
+        """
+        Ask different possibility from command arg, proposition is limited by AUTOCOMPLETE_LIMIT constant
+        :param command: str
+        :return: list of proposition
+        """
+        propositions = []
+        completer = self.completer
+        for i in range(AUTOCOMPLETE_LIMIT):
+            ret = completer.complete(command, i)
+            if ret:
+                propositions.append(ret)
+            else:
+                break
+        return propositions
+
+    def write_autocomplete(self, command):
+        """
+        Prepare text to write.
+        :param command: str command
+        :return:
+        """
+        # Is = or space inside ?
+        text_after_eq = command.split("=")[-1]
+        text_strip = text_after_eq.strip()
+        command_strip = text_strip.split(" ")[-1]
+        propositions = self.autocomplete(command_strip)
+        buffer = "--\n" + AUTOCOMPLETE_SEPARATOR.join(propositions)
+        buffer = buffer.strip()
+        if len(propositions) > 1:
+            self.remove_last_command()
+            self.write(buffer)
+            self.raw_input(self.prompt + command)
+        elif len(propositions) == 1:
+            self.remove_last_command()
+            # Replace text by last proposition
+            command = command.replace(command_strip, propositions[0])
+            self.write(self.prompt + command)
+        else:
+            return
+
     @QtCore.Slot()
     def count_cursor_lines(self):
         """
@@ -181,10 +225,10 @@ class Terminal(QtWidgets.QPlainTextEdit):
             self.remove_last_command()
             self.raw_input(self.prompt + self.get_next_history())
             return
-        # tab autocomplete
+        # Tab autocomplete
         elif event.key() == QtCore.Qt.Key_Tab:
             cmd = self.get_command()
             if bool(cmd and cmd.strip()):
-                self.press_tab.emit(cmd)
+                self.write_autocomplete(cmd)
             return
         super(Terminal, self).keyPressEvent(event)
