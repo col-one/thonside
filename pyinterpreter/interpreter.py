@@ -1,7 +1,10 @@
 import sys
 import code
+import rlcompleter
 from io import StringIO
 from contextlib import redirect_stdout
+
+AUTOCOMPLETE_LIMIT = 20
 
 class Interpreter(code.InteractiveConsole):
     def __init__(self):
@@ -91,3 +94,30 @@ class Interpreter(code.InteractiveConsole):
             if bool(output and output.strip()):
                 self.write(output)
         sys.stdout = old_stdout
+
+    def autocomplete(self, command):
+        """
+        Ask different possibility from command arg, proposition is limited by AUTOCOMPLETE_LIMIT constant
+        :param command: str
+        :return: list of proposition
+        """
+        propositions = []
+        completer = rlcompleter.Completer()
+        for i in range(AUTOCOMPLETE_LIMIT):
+            ret = completer.complete(command, i)
+            if ret:
+                propositions.append(ret)
+            else:
+                break
+        return propositions
+
+    def write_autocomplete(self, command):
+        propositions = self.autocomplete(command)
+        buffer = " ".join(propositions)
+        buffer = buffer.strip()
+        if len(propositions) != 1:
+            self.write(buffer)
+            self.raw_input(self.prompt + command)
+        else:
+            self.raw_input(self.prompt + propositions[0])
+

@@ -8,6 +8,7 @@ class Terminal(QtWidgets.QPlainTextEdit):
 
     # signal to connect at the interpreter run code
     press_enter = QtCore.Signal(str)
+    press_tab = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         """
@@ -179,5 +180,11 @@ class Terminal(QtWidgets.QPlainTextEdit):
         elif event.key() == QtCore.Qt.Key_Up:
             self.remove_last_command()
             self.raw_input(self.prompt + self.get_next_history())
+            return
+        # tab autocomplete
+        elif event.key() == QtCore.Qt.Key_Tab:
+            cmd = self.get_command()
+            if bool(cmd and cmd.strip()):
+                self.press_tab.emit(cmd)
             return
         super(Terminal, self).keyPressEvent(event)
