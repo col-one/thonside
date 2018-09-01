@@ -1,4 +1,4 @@
-import os
+import os, sys
 import atexit
 import readline
 import rlcompleter
@@ -6,6 +6,34 @@ from PySide2 import QtCore, QtGui, QtWidgets
 
 AUTOCOMPLETE_LIMIT = 20
 AUTOCOMPLETE_SEPARATOR = "\n"
+
+
+class QueueReceiver(QtCore.QObject):
+    sent = QtCore.Signal(str)
+
+    def __init__(self, queue, *args, **kwargs):
+        QtCore.QObject.__init__(self,*args,**kwargs)
+        self.queue = queue
+
+    @QtCore.Slot()
+    def run(self):
+        while True:
+            text = self.queue.get()
+            self.sent.emit(text)
+
+
+class ExecThread(QtCore.QObject):
+    finished = QtCore.Signal()
+    def_to_run = None
+    cmd = None
+    @QtCore.Slot()
+    def run(self):
+        try:
+            self.def_to_run(self.cmd)
+        except:
+            (type, value, traceback) = sys.exc_info()
+            sys.excepthook(type, value, traceback)
+        self.finished.emit()
 
 class Terminal(QtWidgets.QPlainTextEdit):
 
@@ -29,9 +57,21 @@ class Terminal(QtWidgets.QPlainTextEdit):
         self.init_history(self.hist_file)
         self.history_index = readline.get_current_history_length()
         self.completer = rlcompleter.Completer()
-
+        self.def_to_run_code = None
+        self.thread = None
         # connection cursor line position
         self.cursorPositionChanged.connect(self.count_cursor_lines)
+        # connect press enter
+        self.press_enter.connect(self.exec_code)
+
+    def active_queue_thread(self, queue):
+        self.thread_q = QtCore.QThread()
+        self.receiver = QueueReceiver(queue)
+        self.receiver.sent.connect(self.write)
+        self.receiver.moveToThread(self.thread_q)
+        self.thread_q.started.connect(self.receiver.run)
+        self.thread_q.start()
+
 
     def init_history(self, hist_file):
         """
@@ -63,6 +103,19 @@ class Terminal(QtWidgets.QPlainTextEdit):
         """
         self.appendPlainText(data)
         self.moveCursor(QtGui.QTextCursor.End)
+
+    def write_prompt(self, data):
+        """
+        Append text to the Terminal. And keep cursor at the end.
+        :param data: str data to write.
+        :return:
+        """
+        import time
+        time.sleep(4)
+        self.appendPlainText(data)
+        # print(data)
+        # self.moveCursor(QtGui.QTextCursor.End)
+        # self.remove_last_line()
 
     def raw_input(self, prompt=None):
         """
@@ -100,6 +153,16 @@ class Terminal(QtWidgets.QPlainTextEdit):
         :return: int line cursor position.
         """
         return self.textCursor().columnNumber() - len(self.prompt)
+
+    def remove_last_line(self):
+        # cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(self.get_last_line()-5))
+        cursor = self.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.Up)
+        cursor.movePosition(QtGui.QTextCursor.Up)
+        cursor.movePosition(QtGui.QTextCursor.Up)
+        cursor.movePosition(QtGui.QTextCursor.Up)
+        cursor.movePosition(QtGui.QTextCursor.Up)
+        self.setTextCursor(cursor)
 
     def remove_last_command(self):
         """
@@ -193,6 +256,17 @@ class Terminal(QtWidgets.QPlainTextEdit):
             lines += block.lineCount()
             block = block.previous()
         self.cursor_line = lines
+
+    @QtCore.Slot()
+    def exec_code(self, cmd):
+        self.thread = QtCore.QThread()
+        self.exec_thread = ExecThread()
+        self.exec_thread.cmd = cmd
+        self.exec_thread.def_to_run = self.def_to_run_code
+        self.exec_thread.moveToThread(self.thread)
+        self.thread.started.connect(self.exec_thread.run)
+        self.exec_thread.finished.connect(self.thread.quit)
+        self.thread.start()
 
     def keyPressEvent(self, event):
         """

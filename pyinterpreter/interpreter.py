@@ -1,11 +1,25 @@
 import sys
 import code
 from io import StringIO
+from queue import Queue
 from contextlib import redirect_stdout
 
 
+class Streamer(object):
+    def __init__(self, queue):
+        self.queue = queue
+
+    def write(self, text):
+        if bool(text and text.strip()):
+            text = text.replace("\n", "")
+            self.queue.put(text)
+
+    def flush(self):
+        pass
+
+
 class Interpreter(code.InteractiveConsole):
-    def __init__(self, extra_context=dict()):
+    def __init__(self, extra_context=dict(), stream_out=True, stream_err=True):
         """
         Init an interpreter, get globals and locals from current context.
         Define classic python prompt style.
@@ -13,10 +27,16 @@ class Interpreter(code.InteractiveConsole):
         context = globals().copy()
         context.update(locals().copy())
         context.update(extra_context.copy())
+        #
         super(Interpreter, self).__init__(context)
         self.inter_name = self.__class__.__name__
-        self.write_slot = None
-        self.input_slot = None
+        self.queue = Queue()
+        self.streamer_out = Streamer(self.queue)
+        self.streamer_err = Streamer(self.queue)
+        sys.stdout = self.streamer_out if stream_out else sys.__stdout__
+        sys.stderr = self.streamer_err if stream_err else sys.__stderr__
+        self.write_slot = self.queue.put
+        self.input_slot = self.queue.put
         self.more = 0
         try:
             sys.ps1
@@ -85,19 +105,15 @@ class Interpreter(code.InteractiveConsole):
         :param code: str code to run
         :return:
         """
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
         super(Interpreter, self).runcode(code)
-        with sys.stdout as buf, redirect_stdout(buf):
-            output = buf.getvalue()
-            if bool(output and output.strip()):
-                self.write(output)
-        with sys.stderr as buf, redirect_stdout(buf):
-            output = buf.getvalue()
-            if bool(output and output.strip()):
-                self.write(output)
-        sys.stdout = old_stdout
+        # with sys.stdout as buf, redirect_stdout(buf):
+        #     output = buf.getvalue()
+        #     if bool(output and output.strip()):
+        #         self.write(output)
+        # with sys.stderr as buf, redirect_stdout(buf):
+        #     output = buf.getvalue()
+        #     if bool(output and output.strip()):
+        #         self.write(output)
+        # sys.stdout = old_stdout
 
 
